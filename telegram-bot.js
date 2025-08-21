@@ -58,4 +58,22 @@ async function sendTelegramPhoto(photoPath, caption = "") {
   }
 }
 
-module.exports = { sendTelegramMessage, sendTelegramPhoto };
+async function getTelegramUpdates(offset = 0) {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error("Telegram bot token is not defined. Cannot get updates.");
+    return [];
+  }
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`;
+  try {
+    const response = await axios.post(url, { offset: offset, timeout: 60 }); // Long polling
+    return response.data.result;
+  } catch (error) {
+    console.error("Failed to get Telegram updates:", error.message);
+    if (error.response) {
+      console.error("Telegram API response data:", error.response.data);
+    }
+    return [];
+  }
+}
+
+module.exports = { sendTelegramMessage, sendTelegramPhoto, getTelegramUpdates };
