@@ -146,6 +146,9 @@ async function checkAppointments() {
           console.log(
             `Telegram message sent: Appointment booked for ${selectedSlotValue}`
           );
+          clearInterval(appointmentCheckInterval);
+          clearInterval(pingInterval);
+          console.log("Bot stopped after successful appointment booking.");
         }
       }
     }
@@ -205,8 +208,11 @@ function pingSelf() {
   httpRequest.end();
 }
 
-setInterval(runCheckWithRetries, CHECK_INTERVAL);
-setInterval(pingSelf, CHECK_INTERVAL);
+let appointmentCheckInterval;
+let pingInterval;
+
+appointmentCheckInterval = setInterval(runCheckWithRetries, CHECK_INTERVAL);
+pingInterval = setInterval(pingSelf, CHECK_INTERVAL);
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(
