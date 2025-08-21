@@ -7,6 +7,11 @@ const http = require("http");
 const { autofillForm } = require("./fill-form-script");
 const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram-bot");
 
+// Helper function for random delays
+function getRandomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const checkIntervalInMins = 5; // 5 minutes
 const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to milliseconds
@@ -27,31 +32,56 @@ async function checkAppointments() {
   try {
     console.log("Starting a new check for appointments...");
     const isProduction = process.env.NODE_ENV === "production";
-    browser = await chromium.launch({ headless: isProduction });
+
+    browser = await chromium.launch({
+      headless: isProduction,
+      args: [
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36",
+      ],
+    });
     const page = await browser.newPage();
     await page.goto(APPOINTMENT_URL, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(getRandomDelay(1000, 1400)); // Initial random delay
+    await page.evaluate(() =>
+      window.scrollBy(0, Math.floor(Math.random() * 200) + 50)
+    ); // Random scroll down
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Small delay after scroll
 
     // Step 1: Select "KAIRO" and click Next
     await page.waitForSelector("#Office", { timeout: 15000 });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay before select
     await page.selectOption("#Office", { label: office });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay after select
     await page.click('input[type="submit"][value="Next"]');
+    await page.waitForTimeout(getRandomDelay(1000, 1400)); // Delay after click
 
     // Step 2: Select "Master" and click Next
     await page.waitForSelector("#CalendarId", { timeout: 15000 });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay before select
     await page.selectOption("#CalendarId", {
       label: calendarId,
     });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay after select
     await page.click('input[type="submit"][value="Next"]');
+    await page.waitForTimeout(getRandomDelay(1000, 1400)); // Delay after click
 
     // Step 3: Enter "1" and click Next
     await page.waitForSelector("#PersonCount", { timeout: 15000 });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay before select
     await page.selectOption("#PersonCount", {
       label: personCount,
     });
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Delay after select
     await page.click('input[type="submit"][value="Next"]');
+    await page.waitForTimeout(getRandomDelay(1000, 1400)); // Delay after click
 
     // Step 4: Click Next again
     await page.click('input[type="submit"][value="Next"]');
+    await page.waitForTimeout(getRandomDelay(1000, 1400)); // Delay after click
+    await page.evaluate(() =>
+      window.scrollBy(0, Math.floor(Math.random() * 200) + 50)
+    ); // Random scroll down
+    await page.waitForTimeout(getRandomDelay(500, 700)); // Small delay after scroll
 
     // Step 5: Check for "no appointments" message
     const currentPageBody = await page.textContent("body");
@@ -72,12 +102,15 @@ async function checkAppointments() {
         .locator('input[type="radio"]')
         .nth(-1);
 
+      await page.waitForTimeout(getRandomDelay(1000, 2500)); // Delay before clicking slot
       await lastSlot.click({ timeout: 15000 });
       console.log("Appointment slot found and selected!");
 
       selectedSlotValue = await lastSlot.evaluate((el) => el.value);
 
+      await page.waitForTimeout(getRandomDelay(1000, 2500)); // Delay before clicking next
       await page.click('input[type="submit"][value="Next"]');
+      await page.waitForTimeout(getRandomDelay(1000, 1400)); // Delay after click
 
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
       await sendTelegramMessage(
@@ -88,7 +121,14 @@ async function checkAppointments() {
       // Step 6: Fill the form
       await autofillForm(page);
 
-      // step 7: Confirm the booking appointment
+      // Step 7: Wait for navigation after form submission and confirm the booking appointment
+
+      await page.waitForNavigation({
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      }); // Wait for navigation up to 60 seconds
+      console.log(`Navigated to: ${page.url()}`);
+
       const confirmationText = await page.textContent("body");
       if (confirmationText.includes("Confirmation of reservation")) {
         console.log("Confirmation of reservation found. Taking screenshot...");
