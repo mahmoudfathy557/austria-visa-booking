@@ -75,47 +75,70 @@ async function autofillForm(page, data = personalData) {
     console.log("Waiting for CAPTCHA text from Telegram...");
     let captchaText = null;
     let currentOffset = initialOffset;
+    const CAPTCHA_WAIT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const POLL_INTERVAL_MS = 10 * 1000; // Poll every 10 seconds
+    const startTime = Date.now();
 
-    while (!captchaText) {
-      const updates = await getTelegramUpdates(currentOffset);
-      if (updates.length > 0) {
-        // Find the latest update with a message
-        let latestUpdate = null;
-        for (const update of updates) {
-          if (update.message && update.message.text) {
-            if (!latestUpdate || update.update_id > latestUpdate.update_id) {
-              latestUpdate = update;
+    while (!captchaText && Date.now() - startTime < CAPTCHA_WAIT_TIMEOUT_MS) {
+      try {
+        const updates = await getTelegramUpdates(currentOffset);
+        if (updates.length > 0) {
+          let latestUpdate = null;
+          for (const update of updates) {
+            if (update.message && update.message.text) {
+              if (!latestUpdate || update.update_id > latestUpdate.update_id) {
+                latestUpdate = update;
+              }
             }
           }
-        }
 
-        if (latestUpdate) {
-          captchaText = latestUpdate.message.text;
-          currentOffset = latestUpdate.update_id + 1; // Update offset for next poll
+          if (latestUpdate) {
+            captchaText = latestUpdate.message.text;
+            currentOffset = latestUpdate.update_id + 1;
+          }
         }
+      } catch (telegramError) {
+        console.error(
+          `Error fetching Telegram updates: ${telegramError.message}`
+        );
+        await sendTelegramMessage(
+          `Error fetching Telegram updates for CAPTCHA: ${telegramError.message}`
+        );
       }
+
       if (!captchaText) {
-        await page.waitForTimeout(50000); // Wait 50 seconds before checking for updates again
+        await page.waitForTimeout(POLL_INTERVAL_MS);
       }
     }
 
-    if (captchaInputField && captchaText) {
-      await captchaInputField.fill(captchaText);
-      console.log(`CAPTCHA field filled with: ${captchaText}`);
-    } else if (!captchaInputField) {
-      console.warn("CAPTCHA input field (CaptchaText) not found.");
+    if (captchaText) {
+      if (captchaInputField) {
+        await captchaInputField.fill(captchaText);
+        console.log(`CAPTCHA field filled with: ${captchaText}`);
+        await page.click('input[type="submit"][value="Next"]');
+        console.log("Clicked 'Next' after CAPTCHA submission.");
+      } else {
+        console.warn(
+          "CAPTCHA input field (CaptchaText) not found after receiving text."
+        );
+        await sendTelegramMessage(
+          "CAPTCHA text received, but input field not found. Manual intervention may be needed."
+        );
+      }
+    } else {
+      console.error("Timed out waiting for CAPTCHA text from Telegram.");
+      await sendTelegramMessage(
+        "Timed out waiting for CAPTCHA text. Please check the bot."
+      );
+      throw new Error("CAPTCHA resolution timed out."); // Throw an error to be caught by checkAppointments retry logic
     }
-
-    // After CAPTCHA is filled, click the "Next" button
-    await page.click('input[type="submit"][value="Next"]');
-    console.log("Clicked 'Next' after CAPTCHA submission.");
   } else {
-    console.warn("CAPTCHA image element (Captcha_CaptchaImage) not found.");
+    console.warn(
+      "CAPTCHA image element (Captcha_CaptchaImage) not found. Skipping CAPTCHA handling."
+    );
   }
 
-  console.log(
-    "Form filling process completed. CAPTCHA entered and form submitted."
-  );
+  console.log("Form filling process completed.");
 }
 
 module.exports = { autofillForm, personalData };

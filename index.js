@@ -10,18 +10,20 @@ const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram-bot");
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const checkIntervalInMins = 5; // 5 minutes
 const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to milliseconds
-
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = CHECK_INTERVAL;
 async function checkAppointments() {
-  // const office = "ANKARA";
-  // const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
-
   const office = "KAIRO";
   const calendarId =
     "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
+
+  // const office = "ANKARA";
+  // const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
+
   const personCount = "1";
 
   let browser;
-  let selectedSlotValue = null; // Declare selectedSlotValue here
+  let selectedSlotValue = null;
   try {
     console.log("Starting a new check for appointments...");
     browser = await chromium.launch({ headless: false });
@@ -29,19 +31,19 @@ async function checkAppointments() {
     await page.goto(APPOINTMENT_URL, { waitUntil: "domcontentloaded" });
 
     // Step 1: Select "KAIRO" and click Next
-    await page.waitForSelector("#Office", { timeout: 15000000 });
+    await page.waitForSelector("#Office", { timeout: 15000 });
     await page.selectOption("#Office", { label: office });
     await page.click('input[type="submit"][value="Next"]');
 
     // Step 2: Select "Master" and click Next
-    await page.waitForSelector("#CalendarId", { timeout: 15000000 });
+    await page.waitForSelector("#CalendarId", { timeout: 15000 });
     await page.selectOption("#CalendarId", {
       label: calendarId,
     });
     await page.click('input[type="submit"][value="Next"]');
 
     // Step 3: Enter "1" and click Next
-    await page.waitForSelector("#PersonCount", { timeout: 15000000 });
+    await page.waitForSelector("#PersonCount", { timeout: 15000 });
     await page.selectOption("#PersonCount", {
       label: personCount,
     });
@@ -63,7 +65,6 @@ async function checkAppointments() {
     } else {
       // New Logic: Find and click the last available appointment slot
       console.log("Searching for available slots...");
-      // Select the last radio button within the last table cell containing appointment slots
       const lastSlot = page
         .locator('td[valign="top"]')
         .nth(-1)
@@ -73,10 +74,8 @@ async function checkAppointments() {
       await lastSlot.click({ timeout: 15000 });
       console.log("Appointment slot found and selected!");
 
-      // Get the value of the selected slot before clicking next
-      selectedSlotValue = await lastSlot.evaluate((el) => el.value); // Assign to the declared variable
+      selectedSlotValue = await lastSlot.evaluate((el) => el.value);
 
-      // Click the 'Next' button to proceed after selecting the slot
       await page.click('input[type="submit"][value="Next"]');
 
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
@@ -84,9 +83,7 @@ async function checkAppointments() {
         `An appointment slot has been found for ${selectedSlotValue}!`
       );
       console.log("Notification sent. The bot will continue to monitor.");
-      // Step 6: fill the form using the autofill script, which now handles CAPTCHA and submission
       await autofillForm(page);
-      // Send message after final submission (this will now be triggered after CAPTCHA and form submission in autofillForm)
       if (selectedSlotValue) {
         await sendTelegramMessage(
           `Appointment booked for: ${selectedSlotValue}`
@@ -96,12 +93,33 @@ async function checkAppointments() {
         );
       }
     }
+    return true; // Indicate success
   } catch (error) {
     console.error("An error occurred during the check:", error.message);
+    return false; // Indicate failure
   } finally {
     if (browser) {
       await browser.close();
     }
+  }
+}
+
+async function runCheckWithRetries(attempt = 1) {
+  console.log(`Attempt ${attempt} to check appointments...`);
+  const success = await checkAppointments();
+  if (!success && attempt < MAX_RETRIES) {
+    console.log(
+      `Check failed. Retrying in ${RETRY_DELAY_MS / 1000} seconds...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    await runCheckWithRetries(attempt + 1);
+  } else if (!success) {
+    console.error(
+      `All ${MAX_RETRIES} attempts failed. Skipping this interval.`
+    );
+    await sendTelegramMessage(
+      `Appointment check failed after ${MAX_RETRIES} attempts. Please check the bot logs.`
+    );
   }
 }
 
@@ -119,20 +137,24 @@ function pingSelf() {
   };
   const httpRequest = http.request(options, async (res) => {
     console.log(`Pinging response: ${res.statusCode}`);
-    await sendTelegramMessage(`Pinging response: ${res.statusCode}`);
+    // Only send Telegram message for successful pings to avoid spam
+    if (res.statusCode === 200) {
+      await sendTelegramMessage(`Pinging response: ${res.statusCode}`);
+    }
   });
-  httpRequest.on("error", (e) => {
+  httpRequest.on("error", async (e) => {
     console.error(`Ping error: ${e.message}`);
+    await sendTelegramMessage(`Ping error: ${e.message}`);
   });
   httpRequest.end();
 }
 
-setInterval(checkAppointments, CHECK_INTERVAL);
+setInterval(runCheckWithRetries, CHECK_INTERVAL);
 setInterval(pingSelf, CHECK_INTERVAL);
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(
     `Server is working on port ${PORT} and url http://localhost:${PORT}`
   );
-  checkAppointments();
+  runCheckWithRetries();
 });
