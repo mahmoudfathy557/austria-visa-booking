@@ -2,25 +2,10 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const { chromium } = require("playwright");
-const axios = require("axios");
 const path = require("path");
 const http = require("http");
 const { autofillForm } = require("./fill-form-script");
 const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram-bot");
-
-// ⚠️ REPLACE WITH YOUR TELEGRAM BOT API TOKEN AND CHAT ID ⚠️
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-if (!TELEGRAM_BOT_TOKEN) {
-  console.error("TELEGRAM_BOT_TOKEN is not set in the environment variables.");
-  process.exit(1);
-}
-const TELEGRAM_CHAT_ID = process.env.MY_USER_TELEGRAM_CHAT_ID;
-if (!TELEGRAM_CHAT_ID) {
-  console.error(
-    "MY_USER_TELEGRAM_CHAT_ID is not set in the environment variables."
-  );
-  process.exit(1);
-}
 
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const checkIntervalInMins = 5; // 5 minutes
@@ -29,6 +14,7 @@ const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to mi
 async function checkAppointments() {
   // const office = "ANKARA";
   // const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
+
   const office = "KAIRO";
   const calendarId =
     "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
@@ -98,16 +84,17 @@ async function checkAppointments() {
         `An appointment slot has been found for ${selectedSlotValue}!`
       );
       console.log("Notification sent. The bot will continue to monitor.");
-    }
-
-    // Step 6: fill the form using the autofill script, which now handles CAPTCHA and submission
-    await autofillForm(page);
-    // Send message after final submission (this will now be triggered after CAPTCHA and form submission in autofillForm)
-    if (selectedSlotValue) {
-      await sendTelegramMessage(`Appointment booked for: ${selectedSlotValue}`);
-      console.log(
-        `Telegram message sent: Appointment booked for ${selectedSlotValue}`
-      );
+      // Step 6: fill the form using the autofill script, which now handles CAPTCHA and submission
+      await autofillForm(page);
+      // Send message after final submission (this will now be triggered after CAPTCHA and form submission in autofillForm)
+      if (selectedSlotValue) {
+        await sendTelegramMessage(
+          `Appointment booked for: ${selectedSlotValue}`
+        );
+        console.log(
+          `Telegram message sent: Appointment booked for ${selectedSlotValue}`
+        );
+      }
     }
   } catch (error) {
     console.error("An error occurred during the check:", error.message);
