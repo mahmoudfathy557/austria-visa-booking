@@ -26,7 +26,7 @@ async function checkAppointments() {
   let selectedSlotValue = null;
   try {
     console.log("Starting a new check for appointments...");
-    browser = await chromium.launch({ headless: false });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(APPOINTMENT_URL, { waitUntil: "domcontentloaded" });
 
