@@ -76,7 +76,12 @@ async function checkAppointments() {
     } else {
       // New Logic: Find and click the last available appointment slot
       console.log("Searching for available slots...");
-      const lastSlot = page.locator('input[type="radio"]:last-child');
+      // Select the last radio button within the last table cell containing appointment slots
+      const lastSlot = page
+        .locator('td[valign="top"]')
+        .nth(-1)
+        .locator('input[type="radio"]')
+        .nth(-1);
 
       await lastSlot.click({ timeout: 15000 });
       console.log("Appointment slot found and selected!");
@@ -91,11 +96,12 @@ async function checkAppointments() {
 
     // Step 6: fill the form using the autofill script
     await autofillForm(page);
-    // Wait for the user to enter the CAPTCHA
     console.log(
       "Please enter the CAPTCHA manually and complete the form submission."
     );
-    await page.waitForTimeout(300000); // Wait for 5 minutes to allow user to enter CAPTCHA
+    await page.click('input[type="submit"][value="Next"]');
+    // Wait for the user to enter the CAPTCHA
+    await page.waitForTimeout(15000); // Wait for 30 seconds for the user to enter the CAPTCHA
   } catch (error) {
     console.error("An error occurred during the check:", error.message);
   } finally {
