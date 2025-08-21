@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
 const { chromium } = require("playwright");
@@ -7,10 +8,21 @@ const http = require("http");
 
 // ⚠️ REPLACE WITH YOUR TELEGRAM BOT API TOKEN AND CHAT ID ⚠️
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TELEGRAM_BOT_TOKEN) {
+  console.error("TELEGRAM_BOT_TOKEN is not set in the environment variables.");
+  process.exit(1);
+}
 const TELEGRAM_CHAT_ID = process.env.MY_USER_TELEGRAM_CHAT_ID;
+if (!TELEGRAM_CHAT_ID) {
+  console.error(
+    "MY_USER_TELEGRAM_CHAT_ID is not set in the environment variables."
+  );
+  process.exit(1);
+}
 
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
-const CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes
+const checkIntervalInMins = 5; // 5 minutes
+const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to milliseconds
 
 async function sendTelegramNotification(msg) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -63,7 +75,9 @@ async function checkAppointments() {
         "For your selection there are unfortunately no appointments available"
       )
     ) {
-      console.log("No appointments available. Will check again in 5 minutes.");
+      console.log(
+        `No appointments available. Will check again in ${checkIntervalInMins} minutes.`
+      );
     } else {
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
       await sendTelegramNotification("An appointment slot has been found!");
@@ -86,22 +100,22 @@ app.get("/", (req, res) => {
 function pingSelf() {
   console.log("Pinging myself to stay awake...");
   const options = {
-    hostname: req.headers.host,
-    port: req.connection.localPort,
+    hostname: "localhost",
+    port: PORT,
     path: "/",
   };
-  const req = http.request(options, async (res) => {
+  const httpRequest = http.request(options, async (res) => {
     console.log(`Pinging response: ${res.statusCode}`);
     await sendTelegramNotification(`Pinging response: ${res.statusCode}`);
   });
-  req.on("error", (e) => {
+  httpRequest.on("error", (e) => {
     console.error(`Ping error: ${e.message}`);
   });
-  req.end();
+  httpRequest.end();
 }
 
 setInterval(checkAppointments, CHECK_INTERVAL);
-setInterval(pingSelf, 1000 * 60 * 5); // Ping every 5 minutes
+setInterval(pingSelf, CHECK_INTERVAL);
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(
