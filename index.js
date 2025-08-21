@@ -6,6 +6,7 @@ const axios = require("axios");
 const path = require("path");
 const http = require("http");
 const { autofillForm } = require("./fill-form-script");
+const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram-bot");
 
 // ⚠️ REPLACE WITH YOUR TELEGRAM BOT API TOKEN AND CHAT ID ⚠️
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,20 +25,6 @@ if (!TELEGRAM_CHAT_ID) {
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const checkIntervalInMins = 5; // 5 minutes
 const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to milliseconds
-
-async function sendTelegramNotification(msg) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-  try {
-    await axios.post(url, {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: msg,
-    });
-    console.log("Telegram notification sent successfully!");
-  } catch (error) {
-    console.error("Failed to send Telegram notification:", error.message);
-  }
-}
 
 async function checkAppointments() {
   const office = "ANKARA";
@@ -98,7 +85,7 @@ async function checkAppointments() {
       await page.click('input[type="submit"][value="Next"]');
 
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
-      await sendTelegramNotification("An appointment slot has been found!");
+      await sendTelegramMessage("An appointment slot has been found!");
       console.log("Notification sent. The bot will continue to monitor.");
     }
 
@@ -132,7 +119,7 @@ function pingSelf() {
   };
   const httpRequest = http.request(options, async (res) => {
     console.log(`Pinging response: ${res.statusCode}`);
-    await sendTelegramNotification(`Pinging response: ${res.statusCode}`);
+    await sendTelegramMessage(`Pinging response: ${res.statusCode}`);
   });
   httpRequest.on("error", (e) => {
     console.error(`Ping error: ${e.message}`);
