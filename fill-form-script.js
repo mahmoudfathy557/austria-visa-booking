@@ -105,11 +105,17 @@ async function autofillForm(page, data = personalData) {
     } else if (!captchaInputField) {
       console.warn("CAPTCHA input field (CaptchaText) not found.");
     }
+
+    // After CAPTCHA is filled, click the "Next" button
+    await page.click('input[type="submit"][value="Next"]');
+    console.log("Clicked 'Next' after CAPTCHA submission.");
   } else {
     console.warn("CAPTCHA image element (Captcha_CaptchaImage) not found.");
   }
 
-  console.log("Form filling process completed. CAPTCHA entered.");
+  console.log(
+    "Form filling process completed. CAPTCHA entered and form submitted."
+  );
 }
 
 module.exports = { autofillForm, personalData };

@@ -27,14 +27,15 @@ const checkIntervalInMins = 5; // 5 minutes
 const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to milliseconds
 
 async function checkAppointments() {
-  const office = "ANKARA";
-  // const office = "KAIRO";
-  const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
-  //   const calendarId =
-  // "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
+  // const office = "ANKARA";
+  // const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
+  const office = "KAIRO";
+  const calendarId =
+    "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
   const personCount = "1";
 
   let browser;
+  let selectedSlotValue = null; // Declare selectedSlotValue here
   try {
     console.log("Starting a new check for appointments...");
     browser = await chromium.launch({ headless: false });
@@ -86,22 +87,28 @@ async function checkAppointments() {
       await lastSlot.click({ timeout: 15000 });
       console.log("Appointment slot found and selected!");
 
+      // Get the value of the selected slot before clicking next
+      selectedSlotValue = await lastSlot.evaluate((el) => el.value); // Assign to the declared variable
+
       // Click the 'Next' button to proceed after selecting the slot
       await page.click('input[type="submit"][value="Next"]');
 
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
-      await sendTelegramMessage("An appointment slot has been found!");
+      await sendTelegramMessage(
+        `An appointment slot has been found for ${selectedSlotValue}!`
+      );
       console.log("Notification sent. The bot will continue to monitor.");
     }
 
-    // Step 6: fill the form using the autofill script
+    // Step 6: fill the form using the autofill script, which now handles CAPTCHA and submission
     await autofillForm(page);
-    console.log(
-      "Please enter the CAPTCHA manually and complete the form submission."
-    );
-    await page.click('input[type="submit"][value="Next"]');
-    // Wait for the user to enter the CAPTCHA
-    await page.waitForTimeout(15000); // Wait for 30 seconds for the user to enter the CAPTCHA
+    // Send message after final submission (this will now be triggered after CAPTCHA and form submission in autofillForm)
+    if (selectedSlotValue) {
+      await sendTelegramMessage(`Appointment booked for: ${selectedSlotValue}`);
+      console.log(
+        `Telegram message sent: Appointment booked for ${selectedSlotValue}`
+      );
+    }
   } catch (error) {
     console.error("An error occurred during the check:", error.message);
   } finally {
