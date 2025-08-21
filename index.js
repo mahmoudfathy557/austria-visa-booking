@@ -6,20 +6,19 @@ const path = require("path");
 const http = require("http");
 
 // ⚠️ REPLACE WITH YOUR TELEGRAM BOT API TOKEN AND CHAT ID ⚠️
-const TELEGRAM_BOT_TOKEN = "YOUR_API_TOKEN";
-const TELEGRAM_CHAT_ID = "YOUR_CHAT_ID";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.MY_USER_TELEGRAM_CHAT_ID;
 
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes
 
-async function sendTelegramNotification() {
+async function sendTelegramNotification(msg) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const message = "An appointment slot has been found!";
 
   try {
     await axios.post(url, {
       chat_id: TELEGRAM_CHAT_ID,
-      text: message,
+      text: msg,
     });
     console.log("Telegram notification sent successfully!");
   } catch (error) {
@@ -67,7 +66,7 @@ async function checkAppointments() {
       console.log("No appointments available. Will check again in 5 minutes.");
     } else {
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
-      await sendTelegramNotification();
+      await sendTelegramNotification("An appointment slot has been found!");
       console.log("Notification sent. The bot will continue to monitor.");
     }
   } catch (error) {
@@ -91,8 +90,9 @@ function pingSelf() {
     port: req.connection.localPort,
     path: "/",
   };
-  const req = http.request(options, (res) => {
+  const req = http.request(options, async (res) => {
     console.log(`Pinging response: ${res.statusCode}`);
+    await sendTelegramNotification(`Pinging response: ${res.statusCode}`);
   });
   req.on("error", (e) => {
     console.error(`Ping error: ${e.message}`);
@@ -101,7 +101,7 @@ function pingSelf() {
 }
 
 setInterval(checkAppointments, CHECK_INTERVAL);
-setInterval(pingSelf, 1000 * 60 * 10);
+setInterval(pingSelf, 1000 * 60 * 5); // Ping every 5 minutes
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(
