@@ -115,7 +115,7 @@ async function autofillForm(page, data = personalData) {
       if (captchaInputField) {
         await captchaInputField.fill(captchaText);
         console.log(`CAPTCHA field filled with: ${captchaText}`);
-        await page.click('input[type="submit"][value="Next"]');
+        // await page.click('input[type="submit"][value="Next"]');
         console.log("Clicked 'Next' after CAPTCHA submission.");
       } else {
         console.warn(

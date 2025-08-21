@@ -13,12 +13,12 @@ const CHECK_INTERVAL = 1000 * 60 * checkIntervalInMins; // Convert minutes to mi
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = CHECK_INTERVAL;
 async function checkAppointments() {
-  const office = "KAIRO";
-  const calendarId =
-    "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
+  // const office = "KAIRO";
+  // const calendarId =
+  //   "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
 
-  // const office = "ANKARA";
-  // const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
+  const office = "ANKARA";
+  const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
 
   const personCount = "1";
 
