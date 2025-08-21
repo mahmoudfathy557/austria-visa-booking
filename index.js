@@ -5,6 +5,7 @@ const { chromium } = require("playwright");
 const axios = require("axios");
 const path = require("path");
 const http = require("http");
+const { autofillForm } = require("./fill-form-script");
 
 // ⚠️ REPLACE WITH YOUR TELEGRAM BOT API TOKEN AND CHAT ID ⚠️
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -39,6 +40,13 @@ async function sendTelegramNotification(msg) {
 }
 
 async function checkAppointments() {
+  const office = "ANKARA";
+  // const office = "KAIRO";
+  const calendarId = "Aufenthaltstitel / Oturum müsaadesi";
+  //   const calendarId =
+  // "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)";
+  const personCount = "1";
+
   let browser;
   try {
     console.log("Starting a new check for appointments...");
@@ -48,20 +56,20 @@ async function checkAppointments() {
 
     // Step 1: Select "KAIRO" and click Next
     await page.waitForSelector("#Office", { timeout: 15000000 });
-    await page.selectOption("#Office", { label: "KAIRO" });
+    await page.selectOption("#Office", { label: office });
     await page.click('input[type="submit"][value="Next"]');
 
     // Step 2: Select "Master" and click Next
     await page.waitForSelector("#CalendarId", { timeout: 15000000 });
     await page.selectOption("#CalendarId", {
-      label: "Aufenthaltsbewilligung Student (nur Master, PhD und Stipendiate)",
+      label: calendarId,
     });
     await page.click('input[type="submit"][value="Next"]');
 
     // Step 3: Enter "1" and click Next
     await page.waitForSelector("#PersonCount", { timeout: 15000000 });
     await page.selectOption("#PersonCount", {
-      label: "1",
+      label: personCount,
     });
     await page.click('input[type="submit"][value="Next"]');
 
@@ -79,10 +87,28 @@ async function checkAppointments() {
         `No appointments available. Will check again in ${checkIntervalInMins} minutes.`
       );
     } else {
+      // New Logic: Find and click the last available appointment slot
+      console.log("Searching for available slots...");
+      const lastSlot = page.locator('input[type="radio"]:last-child');
+
+      await lastSlot.click({ timeout: 15000 });
+      console.log("Appointment slot found and selected!");
+
+      // Click the 'Next' button to proceed after selecting the slot
+      await page.click('input[type="submit"][value="Next"]');
+
       console.log("APPOINTMENT SLOT FOUND! Sending Telegram notification...");
       await sendTelegramNotification("An appointment slot has been found!");
       console.log("Notification sent. The bot will continue to monitor.");
     }
+
+    // Step 6: fill the form using the autofill script
+    await autofillForm(page);
+    // Wait for the user to enter the CAPTCHA
+    console.log(
+      "Please enter the CAPTCHA manually and complete the form submission."
+    );
+    await page.waitForTimeout(300000); // Wait for 5 minutes to allow user to enter CAPTCHA
   } catch (error) {
     console.error("An error occurred during the check:", error.message);
   } finally {

@@ -1,6 +1,4 @@
 // Data to fill the form
-// copy it to the console and run it on the page
-// This script is designed to fill out a visa application form automatically
 const personalData = {
   Lastname: "Elshourbagy",
   Firstname: "Mahmoud",
@@ -17,47 +15,49 @@ const personalData = {
   NationalityAtBirth: "EGYPT",
   CountryOfBirth: "IRAQ",
   PlaceOfBirth: "Baghdad",
-  NationalityForApplication: "EGYPT", // Corrected ID
-  TraveldocumentDateOfIssue: "11/22/2022", // Corrected ID
-  TraveldocumentValidUntil: "11/21/2029", // Corrected ID
-  TraveldocumentIssuingAuthority: "EGYPT", // Corrected ID
+  NationalityForApplication: "EGYPT",
+  TraveldocumentDateOfIssue: "11/22/2022",
+  TraveldocumentValidUntil: "11/21/2029",
+  TraveldocumentIssuingAuthority: "EGYPT",
 };
 
-// Function to fill the form
-function autofillForm(data) {
-  for (const key in data) {
-    const element = document.getElementById(key);
-    if (element) {
-      // For dropdowns, we need to select the option by its text
-      if (element.tagName === "SELECT") {
-        for (let i = 0; i < element.options.length; i++) {
-          if (
-            element.options[i].text.toUpperCase() === data[key].toUpperCase()
-          ) {
-            element.value = element.options[i].value;
-            break;
+// Function to fill the form using Playwright's page.evaluate
+async function autofillForm(page, data = personalData) {
+  await page.evaluate((formData) => {
+    for (const key in formData) {
+      const element = document.getElementById(key);
+      if (element) {
+        if (element.tagName === "SELECT") {
+          for (let i = 0; i < element.options.length; i++) {
+            if (
+              element.options[i].text.toUpperCase() ===
+              formData[key].toUpperCase()
+            ) {
+              element.value = element.options[i].value;
+              break;
+            }
           }
+        } else {
+          element.value = formData[key];
         }
+        element.dispatchEvent(new Event("input", { bubbles: true }));
       } else {
-        element.value = data[key];
+        console.warn(`Element with ID '${key}' not found.`);
       }
-      // Dispatching input event to trigger any validation or UI updates
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-    } else {
-      console.warn(`Element with ID '${key}' not found.`);
     }
-  }
 
-  // Check the privacy policy checkbox
-  const privacyCheckbox = document.getElementById("datenschutzbox");
-  if (privacyCheckbox && !privacyCheckbox.checked) {
-    privacyCheckbox.click();
-  }
+    // Check and click the privacy checkbox if it exists
+    // This assumes the checkbox has the ID 'DSGVOAccepted
 
-  console.log(
-    "Form filled successfully! Please review the data and enter the CAPTCHA."
-  );
+    const privacyCheckbox = document.getElementById("DSGVOAccepted");
+    if (privacyCheckbox && !privacyCheckbox.checked) {
+      privacyCheckbox.click();
+    }
+
+    console.log(
+      "Form filled successfully! Please review the data and enter the CAPTCHA."
+    );
+  }, data);
 }
 
-// Run the function
-autofillForm(personalData);
+module.exports = { autofillForm, personalData };
