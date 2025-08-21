@@ -26,7 +26,8 @@ async function checkAppointments() {
   let selectedSlotValue = null;
   try {
     console.log("Starting a new check for appointments...");
-    browser = await chromium.launch({ headless: true });
+    const isProduction = process.env.NODE_ENV === "production";
+    browser = await chromium.launch({ headless: isProduction });
     const page = await browser.newPage();
     await page.goto(APPOINTMENT_URL, { waitUntil: "domcontentloaded" });
 
@@ -53,9 +54,9 @@ async function checkAppointments() {
     await page.click('input[type="submit"][value="Next"]');
 
     // Step 5: Check for "no appointments" message
-    const noAppointmentsText = await page.textContent("body");
+    const currentPageBody = await page.textContent("body");
     if (
-      noAppointmentsText.includes(
+      currentPageBody.includes(
         "For your selection there are unfortunately no appointments available"
       )
     ) {
@@ -63,7 +64,7 @@ async function checkAppointments() {
         `No appointments available. Will check again in ${checkIntervalInMins} minutes.`
       );
     } else {
-      // New Logic: Find and click the last available appointment slot
+      // Find and click the last available appointment slot
       console.log("Searching for available slots...");
       const lastSlot = page
         .locator('td[valign="top"]')
@@ -83,14 +84,27 @@ async function checkAppointments() {
         `An appointment slot has been found for ${selectedSlotValue}!`
       );
       console.log("Notification sent. The bot will continue to monitor.");
+
+      // Step 6: Fill the form
       await autofillForm(page);
-      if (selectedSlotValue) {
-        await sendTelegramMessage(
-          `Appointment booked for: ${selectedSlotValue}`
-        );
-        console.log(
-          `Telegram message sent: Appointment booked for ${selectedSlotValue}`
-        );
+
+      // step 7: Confirm the booking appointment
+      const confirmationText = await page.textContent("body");
+      if (confirmationText.includes("Confirmation of reservation")) {
+        console.log("Confirmation of reservation found. Taking screenshot...");
+        const screenshotPath = "confirmation.png";
+        await page.screenshot({ path: screenshotPath });
+        await sendTelegramPhoto(screenshotPath, "Booking Confirmation");
+        console.log("Screenshot sent to Telegram.");
+
+        if (selectedSlotValue) {
+          await sendTelegramMessage(
+            `Appointment booked for: ${selectedSlotValue}`
+          );
+          console.log(
+            `Telegram message sent: Appointment booked for ${selectedSlotValue}`
+          );
+        }
       }
     }
     return true; // Indicate success

@@ -107,7 +107,7 @@ async function autofillForm(page, data = personalData) {
     }
 
     // After CAPTCHA is filled, click the "Next" button
-    // await page.click('input[type="submit"][value="Next"]');
+    await page.click('input[type="submit"][value="Next"]');
     console.log("Clicked 'Next' after CAPTCHA submission.");
   } else {
     console.warn("CAPTCHA image element (Captcha_CaptchaImage) not found.");
