@@ -34,34 +34,37 @@ async function autofillForm(page, data = personalData) {
   }
 
   // Handle privacy checkbox and captcha field within page.evaluate for direct DOM interaction
-  await page.evaluate(async () => {
+  const captchaImageSrc = await page.evaluate(async () => {
     // Check and click the privacy checkbox if it exists
     const privacyCheckbox = document.getElementById("DSGVOAccepted");
     if (privacyCheckbox && !privacyCheckbox.checked) {
       privacyCheckbox.click();
-      console.log("Privacy checkbox clicked.");
+      console.log("Privacy checkbox clicked."); // This log will appear in the browser console
     } else if (privacyCheckbox && privacyCheckbox.checked) {
-      console.log("Privacy checkbox already checked.");
+      console.log("Privacy checkbox already checked."); // This log will appear in the browser console
     } else {
-      console.warn("Privacy checkbox (DSGVOAccepted) not found.");
+      console.warn("Privacy checkbox (DSGVOAccepted) not found."); // This log will appear in the browser console
     }
 
-    // fill the capcha field if it exists
-    const captchaInputField = document.getElementById("CaptchaText");
+    // Get the captcha image source if it exists
     const captchaImage = document.getElementById("Captcha_CaptchaImage");
-    console.log("🚀 ~ autofillForm ~ captchaImage:", captchaImage);
     if (captchaImage) {
-      // send the src of the captcha image to the user through Telegram
-      console.log("CAPTCHA field found. Image src:", captchaImage.src);
-    } else {
-      console.warn("CAPTCHA field not found.");
+      return captchaImage.src;
     }
-
-    console.log(
-      "Form filling process completed. Please review the data and enter the CAPTCHA."
-    );
-    return captchaImage ? captchaImage.src : null;
+    return null;
   });
+
+  if (captchaImageSrc) {
+    console.log("CAPTCHA field found. Image src:", captchaImageSrc);
+    // Send the src of the captcha image to the user through Telegram
+    await sendTelegramPhoto(captchaImageSrc);
+  } else {
+    console.warn("CAPTCHA field not found.");
+  }
+
+  console.log(
+    "Form filling process completed. Please review the data and enter the CAPTCHA."
+  );
 }
 
 module.exports = { autofillForm, personalData };
