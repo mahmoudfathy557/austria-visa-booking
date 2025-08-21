@@ -1,6 +1,8 @@
 // Data to fill the form
 const { personalData } = require("./personal-data");
 const { sendTelegramPhoto } = require("./telegram-bot");
+const path = require("path");
+const fs = require("fs").promises;
 
 // Function to fill the form using Playwright's page.evaluate
 async function autofillForm(page, data = personalData) {
@@ -33,33 +35,35 @@ async function autofillForm(page, data = personalData) {
     }
   }
 
-  // Handle privacy checkbox and captcha field within page.evaluate for direct DOM interaction
-  const captchaImageSrc = await page.evaluate(async () => {
-    // Check and click the privacy checkbox if it exists
+  // Handle privacy checkbox
+  await page.evaluate(async () => {
     const privacyCheckbox = document.getElementById("DSGVOAccepted");
     if (privacyCheckbox && !privacyCheckbox.checked) {
       privacyCheckbox.click();
-      console.log("Privacy checkbox clicked."); // This log will appear in the browser console
+      console.log("Privacy checkbox clicked.");
     } else if (privacyCheckbox && privacyCheckbox.checked) {
-      console.log("Privacy checkbox already checked."); // This log will appear in the browser console
+      console.log("Privacy checkbox already checked.");
     } else {
-      console.warn("Privacy checkbox (DSGVOAccepted) not found."); // This log will appear in the browser console
+      console.warn("Privacy checkbox (DSGVOAccepted) not found.");
     }
-
-    // Get the captcha image source if it exists
-    const captchaImage = document.getElementById("Captcha_CaptchaImage");
-    if (captchaImage) {
-      return captchaImage.src;
-    }
-    return null;
   });
 
-  if (captchaImageSrc) {
-    console.log("CAPTCHA field found. Image src:", captchaImageSrc);
-    // Send the src of the captcha image to the user through Telegram
-    await sendTelegramPhoto(captchaImageSrc);
+  // Handle captcha field
+  const captchaImage = await page.$("#Captcha_CaptchaImage");
+  if (captchaImage) {
+    console.log("CAPTCHA image element found.");
+    const screenshotPath = path.join(__dirname, "captcha.png");
+    await captchaImage.screenshot({ path: screenshotPath });
+    console.log(`CAPTCHA image saved to ${screenshotPath}`);
+
+    // Send the screenshot file to the user through Telegram
+    await sendTelegramPhoto(screenshotPath);
+
+    // Optionally, delete the screenshot after sending
+    await fs.unlink(screenshotPath);
+    console.log(`CAPTCHA screenshot deleted from ${screenshotPath}`);
   } else {
-    console.warn("CAPTCHA field not found.");
+    console.warn("CAPTCHA image element (Captcha_CaptchaImage) not found.");
   }
 
   console.log(

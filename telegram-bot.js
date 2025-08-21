@@ -27,24 +27,34 @@ async function sendTelegramMessage(msg) {
   }
 }
 
-async function sendTelegramPhoto(photoUrl, caption = "") {
+const fs = require("fs"); // Add fs for file system operations
+const FormData = require("form-data"); // Require form-data package
+
+async function sendTelegramPhoto(photoPath, caption = "") {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error(
       "Telegram bot token or chat ID is not defined. Cannot send photo."
     );
     return;
   }
+
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
 
   try {
-    await axios.post(url, {
-      chat_id: TELEGRAM_CHAT_ID,
-      photo: photoUrl,
-      caption: caption,
+    const formData = new FormData();
+    formData.append("chat_id", TELEGRAM_CHAT_ID);
+    formData.append("photo", fs.createReadStream(photoPath));
+    formData.append("caption", caption);
+
+    await axios.post(url, formData, {
+      headers: formData.getHeaders(),
     });
     console.log("Telegram photo sent successfully!");
   } catch (error) {
     console.error("Failed to send Telegram photo:", error.message);
+    if (error.response) {
+      console.error("Telegram API response data:", error.response.data);
+    }
   }
 }
 
