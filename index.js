@@ -6,11 +6,8 @@ const path = require("path");
 const http = require("http");
 const { autofillForm } = require("./fill-form-script");
 const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram-bot");
-
+const { getRandomDelay } = require("./helpers");
 // Helper function for random delays
-function getRandomDelay(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 const APPOINTMENT_URL = "https://appointment.bmeia.gv.at/";
 const checkIntervalInMins = 5; // 5 minutes
@@ -147,7 +144,6 @@ async function checkAppointments() {
             `Telegram message sent: Appointment booked for ${selectedSlotValue}`
           );
           clearInterval(appointmentCheckInterval);
-          clearInterval(pingInterval);
           console.log("Bot stopped after successful appointment booking.");
         }
       }
@@ -183,36 +179,14 @@ async function runCheckWithRetries(attempt = 1) {
 }
 
 // Keep the service alive and run the check periodically
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
+  await sendTelegramMessage(`Pinging response: ${res.statusCode}`);
   res.send("Appointment bot is running.");
 });
 
-function pingSelf() {
-  console.log("Pinging myself to stay awake...");
-  const options = {
-    hostname: "localhost",
-    port: PORT,
-    path: "/",
-  };
-  const httpRequest = http.request(options, async (res) => {
-    console.log(`Pinging response: ${res.statusCode}`);
-    // Only send Telegram message for successful pings to avoid spam
-    if (res.statusCode === 200) {
-      await sendTelegramMessage(`Pinging response: ${res.statusCode}`);
-    }
-  });
-  httpRequest.on("error", async (e) => {
-    console.error(`Ping error: ${e.message}`);
-    await sendTelegramMessage(`Ping error: ${e.message}`);
-  });
-  httpRequest.end();
-}
-
 let appointmentCheckInterval;
-let pingInterval;
 
 appointmentCheckInterval = setInterval(runCheckWithRetries, CHECK_INTERVAL);
-pingInterval = setInterval(pingSelf, CHECK_INTERVAL);
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(
